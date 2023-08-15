@@ -17,7 +17,6 @@ def extract_info_from_excel(file_path):
         line = df.iloc[i, 0]
 
         if line and any(digit in str(line) for digit in ["1st", "2nd", "3rd"]):
-            # Check if the line is a degree connection
             name = df.iloc[i - 1, 0]
             hyperlink = ws.cell(row=i, column=1).hyperlink.target if ws.cell(row=i, column=1).hyperlink else None
 

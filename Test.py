@@ -1,7 +1,7 @@
 import unittest
 from openpyxl import Workbook
 from io import BytesIO
-from main import extract_info_from_excel  # Adjust the import as per your script's name
+from main import extract_info_from_excel
 
 class TestLinkedInExtractor(unittest.TestCase):
 
