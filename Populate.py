@@ -1,6 +1,8 @@
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
+import warnings
+warnings.filterwarnings("ignore")
 
 def append_to_spreadsheet(source_file, existing_file):
     # Load the data from the source file
@@ -22,10 +24,10 @@ def append_to_spreadsheet(source_file, existing_file):
     wb_existing = load_workbook(existing_file)
     ws = wb_existing.active
 
-    # Convert the existing Excel data to a dataframe for easier comparison
-    data = ws.values
-    columns = next(data)[0:]  # Assumes first line is header
-    df_existing = pd.DataFrame(data, columns=columns)
+    # Convert the existing Excel data to a DataFrame for easier comparison
+    data = list(ws.iter_rows(values_only=True))
+    columns = data[0]  # Assumes first row is header
+    df_existing = pd.DataFrame(data[1:], columns=columns)
 
     # Match on Name and Full Name columns to get unique rows
     merged_df = df_input.merge(df_existing, left_on="Name", right_on="Full Name", how='left', indicator=True)
@@ -52,17 +54,28 @@ def append_to_spreadsheet(source_file, existing_file):
 
     # Find the starting row to append data in existing_file
     start_row = 82
-    while ws.cell(row=start_row, column=1).value:
-        start_row += 1
 
+    # Initialize a set to store existing URLs
+    existing_urls = set(df_existing['LinkedIn (url)'])
+
+    # Append unique rows to the existing spreadsheet
     for index, row in unique_rows.iterrows():
-        for c_idx, value in enumerate(row, 1):
-            ws.cell(row=start_row, column=c_idx, value=value)
-            # Set hyperlink for LinkedIn(url) column
-            if c_idx == 8 and isinstance(value, str) and value.startswith("http"):
-                original_link_formula = ws_links.cell(row=index + 2, column=1).hyperlink.target
-                ws.cell(row=start_row, column=c_idx).hyperlink = original_link_formula
-        start_row += 1
+        existing_url = linkedin_urls[index]  # Get the existing URL for the current row
+        if existing_url is not None and existing_url not in existing_urls:
+            # Check if any data in the row already exists in the existing sheet
+            if not df_existing[df_existing.eq(row).all(1)].empty:
+                continue
+
+            # Add the URL to the set of existing URLs
+            existing_urls.add(existing_url)
+
+            for c_idx, value in enumerate(row, 1):
+                ws.cell(row=start_row, column=c_idx, value=value)
+                # Set hyperlink for LinkedIn(url) column
+                if c_idx == 8 and isinstance(value, str) and value.startswith("http"):
+                    original_link_formula = ws_links.cell(row=index + 2, column=1).hyperlink.target
+                    ws.cell(row=start_row, column=c_idx).hyperlink = original_link_formula
+            start_row += 1
 
     # Save the modified workbook
     wb_existing.save(existing_file)
