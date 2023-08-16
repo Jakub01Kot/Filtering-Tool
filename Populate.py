@@ -53,7 +53,7 @@ def append_to_spreadsheet(source_file, existing_file):
     unique_rows = unique_rows[columns_order]
 
     # Find the starting row to append data in existing_file
-    start_row = 82
+    start_row = 111
 
     # Initialize a set to store existing URLs
     existing_urls = set(df_existing['LinkedIn (url)'])
