@@ -1,80 +1,75 @@
 import pandas as pd
-from openpyxl import load_workbook, Workbook
+from openpyxl import load_workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
 
+def append_to_spreadsheet(source_file, existing_file):
+    # Load the data from the source file
+    wb_links = load_workbook(source_file, data_only=True)
+    ws_links = wb_links.active
 
-def extract_info_from_excel(file_path):
-    # Load the Excel file
-    wb = load_workbook(filename=file_path)
-    ws = wb.active
+    # Extract LinkedIn URLs from the hyperlinks in the 'Name' column
+    linkedin_urls = []
+    for i, row in enumerate(ws_links.iter_rows(min_row=2, max_row=ws_links.max_row, min_col=1, max_col=1)):
+        hyperlink = row[0].hyperlink
+        if hyperlink is not None:
+            linkedin_urls.append(hyperlink.target)
+        else:
+            linkedin_urls.append(None)
 
-    # Convert worksheet to dataframe for easier parsing
-    df = pd.DataFrame(ws.values)
+    df_input = pd.read_excel(source_file)
 
-    names, professions, companies, locations, experiences, hyperlinks = [], [], [], [], [], []
+    # Load the existing Excel workbook and worksheet
+    wb_existing = load_workbook(existing_file)
+    ws = wb_existing.active
 
-    i = 0
-    while i < len(df):
-        line = df.iloc[i, 0]
+    # Convert the existing Excel data to a dataframe for easier comparison
+    data = ws.values
+    columns = next(data)[0:]  # Assumes first line is header
+    df_existing = pd.DataFrame(data, columns=columns)
 
-        # Check if the current line is a name based on the assumption that the next line will contain the connection degree
-        if i + 1 < len(df) and any(deg in str(df.iloc[i + 1, 0]) for deg in ["1st", "2nd", "3rd"]):
-            name = line
-            hyperlink = ws.cell(row=i + 1, column=1).hyperlink.target if ws.cell(row=i + 1,
-                                                                                 column=1).hyperlink else None
+    # Match on Name and Full Name columns to get unique rows
+    merged_df = df_input.merge(df_existing, left_on="Name", right_on="Full Name", how='left', indicator=True)
+    unique_rows = merged_df[merged_df['_merge'] == 'left_only']
 
-            # Get profession and company
-            i += 2  # Skip the connection info and get to the profession
-            profession_company = df.iloc[i, 0].split("  ") if df.iloc[i, 0] else [None, None]
-            profession, company = (profession_company + [None, None])[:2]
+    # Drop the merge column and any other unneeded columns
+    unique_rows = unique_rows.drop(columns=['_merge', 'Name', 'Profession', 'Experience'])
 
-            # Get location
-            i += 1
-            location = df.iloc[i, 0] if df.iloc[i, 0] else None
+    columns_order = ['Location', 'Swiss Connection', 'Source (url)',
+                     'Reason for selection (criteria used)', 'Full Name',
+                     'Title', 'Company', 'LinkedIn (url)']
 
-            # Find experience
-            exp_line = ""
-            j = i + 1
+    unique_rows = unique_rows[columns_order]
 
-            while j < len(df) and not str(df.iloc[j, 0]).startswith("Experience:"):
-                j += 1
-            if j < len(df) and str(df.iloc[j, 0]).startswith("Experience:"):
-                exp_line = df.iloc[j, 0].replace("Experience:", "").strip()
-                i = j
+    # Find the starting row to append data in existing_file
+    start_row = 82
+    while ws.cell(row=start_row, column=1).value:
+        start_row += 1
 
-            # Append the data
-            names.append(name)
-            professions.append(profession)
-            companies.append(company)
-            locations.append(location)
-            experiences.append(exp_line)
-            hyperlinks.append(hyperlink)
+    # Initialize existing_urls as an empty set
+    existing_urls = set()
 
-        i += 1
+    # Populate existing_urls with existing LinkedIn URLs from ws
+    for row in data[81:]:
+        existing_url = row[7]  # Assuming LinkedIn (url) is in the 8th column
+        if isinstance(existing_url, str) and existing_url.startswith("http"):
+            existing_urls.add(existing_url)
 
-    # Convert to DataFrame for processing
-    data_df = pd.DataFrame({
-        'Name': names,
-        'Profession': professions,
-        'Company': companies,
-        'Location': locations,
-        'Experience': experiences
-    })
+    for index, row in unique_rows.iterrows():
+        existing_url = linkedin_urls[index]  # Get the existing URL for the current row
+        if isinstance(existing_url, str) and existing_url.startswith("http"):
+            if existing_url not in existing_urls:  # Use existing_urls to check for duplicates
+                for c_idx, value in enumerate(row, 1):
+                    ws.cell(row=start_row, column=c_idx, value=value)
+                    # Set hyperlink for LinkedIn(url) column
+                    if c_idx == 8 and isinstance(value, str) and value.startswith("http"):
+                        original_link_formula = ws_links.cell(row=index + 2, column=1).hyperlink.target
+                        ws.cell(row=start_row, column=c_idx).hyperlink = original_link_formula
+                start_row += 1
 
-    # Create a new Excel workbook and sheet
-    wb_out = Workbook()
-    ws_out = wb_out.active
-    ws_out.append(["Name", "Profession", "Company", "Location", "Experience"])
-
-    for i, row in data_df.iterrows():
-        ws_out.append(row.tolist())
-
-        # If there's a hyperlink in the original data, assign it to the name in the output file
-        if hyperlinks[i]:
-            ws_out.cell(row=ws_out.max_row, column=1).hyperlink = hyperlinks[i]
-
-    wb_out.save('/Users/jakub/Downloads/Output_with_links.xlsx')
-    return data_df
-
+    # Save the modified workbook
+    wb_existing.save(existing_file)
 
 if __name__ == "__main__":
-    extract_info_from_excel('/Users/jakub/Downloads/list.xlsx')
+    source_file = '/Users/jakub/Downloads/Output_with_links.xlsx'
+    existing_file = '/Users/jakub/Downloads/Existing_spreadsheet.xlsx'
+    append_to_spreadsheet(source_file, existing_file)
