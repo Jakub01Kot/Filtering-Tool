@@ -82,7 +82,6 @@ def append_to_spreadsheet(source_file, existing_file):
 
     columns_order = ['Location', 'Swiss Connection', 'Source (url)', 'Full Name', 'Title', 'Company', 'Company url',
                      'Experience', 'LinkedIn (url)']
-    print(unique_rows.columns)  # Check the columns in unique_rows
     unique_rows.rename(columns={'Swiss Connection_x': 'Swiss Connection'}, inplace=True)
 
     unique_rows = unique_rows[columns_order]
@@ -95,7 +94,6 @@ def append_to_spreadsheet(source_file, existing_file):
 
     # Append unique rows to the existing spreadsheet
     for index, row in unique_rows.iterrows():
-        # Set Swiss Connection value
         existing_url = linkedin_urls[index]
         if existing_url is not None and existing_url not in existing_urls:
             # Check if any data in the row already exists in the existing sheet
