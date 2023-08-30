@@ -73,14 +73,13 @@ def append_to_spreadsheet(source_file, existing_file):
     unique_rows['Full Name'] = unique_rows['Name']
     unique_rows['Title'] = unique_rows['Profession']
     unique_rows['Company'] = unique_rows['Companies']
-    unique_rows['Company url'] = unique_rows['Swiss Connection_x'].apply(map_to_company_url)
     unique_rows.loc[:, 'LinkedIn (url)'] = linkedin_urls
     unique_rows.loc[:, 'Experience'] = df_input.loc[unique_rows.index, 'Experience']
 
     # Drop the merge column and any other unneeded columns
     unique_rows = unique_rows.drop(columns=['_merge', 'Name', 'Profession', 'Locations'])
 
-    columns_order = ['Location', 'Swiss Connection', 'Source (url)', 'Full Name', 'Title', 'Company', 'Company url',
+    columns_order = ['Location', 'Swiss Connection', 'Source (url)', 'Full Name', 'Title', 'Company',
                      'Experience', 'LinkedIn (url)']
     unique_rows.rename(columns={'Swiss Connection_x': 'Swiss Connection'}, inplace=True)
 
@@ -112,7 +111,7 @@ def append_to_spreadsheet(source_file, existing_file):
                 ws.cell(row=start_row, column=c_idx, value=value)
                 if c_idx == 7 and isinstance(value, str) and value.startswith("http"):
                     ws.cell(row=start_row, column=c_idx).hyperlink = value
-                if c_idx == 9 and isinstance(value, str) and value.startswith("http"):
+                if c_idx == 8 and isinstance(value, str) and value.startswith("http"):
                     original_link_formula = ws_links.cell(row=index + 2, column=1).hyperlink.target
                     ws.cell(row=start_row, column=c_idx).hyperlink = original_link_formula
             start_row += 1
